@@ -7,7 +7,6 @@ locals {
   aws_acm_certificate_arn = "arn:aws:acm:us-east-1:632369630105:certificate/9fb53418-8ba4-41eb-917a-39993cafabff"
 }
 
-### Route53
 data "aws_route53_zone" "garagemdigital" {
   name = "garagemdigital.io."
 }
@@ -22,6 +21,7 @@ provider "aws" {
   profile                 = "default"
   region                  = "${var.region}"
 }
+
 resource "aws_s3_bucket" "b" {
   bucket = "terraform-website"
   acl    = "public-read"
@@ -49,6 +49,7 @@ resource "aws_s3_bucket_object" "object" {
 resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
   comment = "Criado pelo terraform"
 }
+
 resource "aws_cloudfront_distribution" "s3_distribution" {
   origin {
     domain_name = "${aws_s3_bucket.b.bucket_regional_domain_name}"
@@ -79,10 +80,24 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
       }
     }
 
-    viewer_protocol_policy = "allow-all"
+    viewer_protocol_policy = "redirect-to-https"
     min_ttl                = 0
     default_ttl            = 3600
     max_ttl                = 86400
+  }
+
+  custom_error_response{
+    error_code = 403
+    response_code = 200
+    error_caching_min_ttl = 300
+    response_page_path = "/index.html"
+  }
+
+  custom_error_response{
+    error_code = 404
+    response_code = 200
+    error_caching_min_ttl = 300
+    response_page_path = "/index.html"
   }
 
   restrictions {
@@ -109,5 +124,5 @@ resource "aws_route53_record" "cname" {
   name    = "terraform-website"
   type    = "CNAME"
   ttl     = "300"
-  records        = ["${aws_cloudfront_distribution.s3_distribution.domain_name}"]
+  records = ["${aws_cloudfront_distribution.s3_distribution.domain_name}"]
 }
